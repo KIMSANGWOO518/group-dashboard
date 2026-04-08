@@ -15,9 +15,16 @@ export default async function DashboardPage() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">공간플랫폼개발그룹</h1>
-            <p className="text-xs text-gray-400">Poi · Display · Dynamic 팀 작업현황</p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/inavi_logo2.png"
+              alt="iNavi 로고"
+              className="h-8 w-auto object-contain"
+            />
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">공간플랫폼개발그룹</h1>
+              <p className="text-xs text-gray-400">Poi · Display · Dynamic 팀 작업현황</p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             {latest && (
