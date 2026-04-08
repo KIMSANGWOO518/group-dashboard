@@ -19,7 +19,7 @@ export default async function DashboardPage() {
             <img
               src="/inavi_logo2.png"
               alt="iNavi 로고"
-              className="h-8 w-auto object-contain"
+              className="h-10 w-auto object-contain"
             />
             <div>
               <h1 className="text-lg font-bold text-gray-900">공간플랫폼개발그룹</h1>
