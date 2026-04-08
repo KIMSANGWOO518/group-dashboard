@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { WeekEntry, TEAM_CONFIG, TeamKey, teamTotal } from "@/lib/types";
-import { format, startOfWeek, getISOWeek, getYear } from "date-fns";
+import { format, startOfWeek, getISOWeek, getYear, getMonth, getDate, getDay, startOfMonth } from "date-fns";
 
 function getWeekId(date: Date): string {
   const week = getISOWeek(date);
@@ -11,10 +11,18 @@ function getWeekId(date: Date): string {
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
+/** 해당 날짜가 월의 몇 번째 주인지 계산 */
+function getWeekOfMonth(date: Date): number {
+  const dayOfMonth = getDate(date);
+  const firstDayOfMonth = getDay(startOfMonth(date)); // 0=일, 1=월 ...
+  return Math.ceil((dayOfMonth + firstDayOfMonth) / 7);
+}
+
 function getWeekLabel(date: Date): string {
-  const week = getISOWeek(date);
   const year = getYear(date);
-  return `${year}년 ${week}주차`;
+  const month = getMonth(date) + 1;
+  const week = getWeekOfMonth(date);
+  return `${year}년 ${month}월 ${week}주차`;
 }
 
 type FieldKey = keyof Omit<WeekEntry, "id" | "label" | "date">;
