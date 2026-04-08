@@ -5,7 +5,6 @@ import { WeekEntry } from "./types";
 
 const KV_KEY = "dashboard:weeks";
 
-// ---------- Vercel KV ----------
 async function getKv() {
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     const { kv } = await import("@vercel/kv");
@@ -14,39 +13,38 @@ async function getKv() {
   return null;
 }
 
-// ---------- in-memory fallback (dev) ----------
 const memStore: WeekEntry[] = [
   {
     id: "2025-W01",
     label: "2025년 1주차",
     date: "2025-01-06",
-    poi: 12,
-    display: 18,
-    dynamic: 9,
+    poi_poi: 8, poi_voc: 4,
+    display_roadwidth: 11, display_outerline: 7,
+    dynamic_road: 5, dynamic_traffic: 4,
   },
   {
     id: "2025-W02",
     label: "2025년 2주차",
     date: "2025-01-13",
-    poi: 15,
-    display: 14,
-    dynamic: 11,
+    poi_poi: 10, poi_voc: 5,
+    display_roadwidth: 9, display_outerline: 5,
+    dynamic_road: 7, dynamic_traffic: 4,
   },
   {
     id: "2025-W03",
     label: "2025년 3주차",
     date: "2025-01-20",
-    poi: 10,
-    display: 20,
-    dynamic: 13,
+    poi_poi: 7, poi_voc: 3,
+    display_roadwidth: 13, display_outerline: 7,
+    dynamic_road: 6, dynamic_traffic: 7,
   },
   {
     id: "2025-W04",
     label: "2025년 4주차",
     date: "2025-01-27",
-    poi: 17,
-    display: 16,
-    dynamic: 8,
+    poi_poi: 12, poi_voc: 5,
+    display_roadwidth: 10, display_outerline: 6,
+    dynamic_road: 5, dynamic_traffic: 3,
   },
 ];
 
@@ -70,7 +68,6 @@ export async function addOrUpdateWeek(entry: WeekEntry): Promise<void> {
     await kv.set(KV_KEY, current);
     return;
   }
-  // fallback
   const idx = memStore.findIndex((w) => w.id === entry.id);
   if (idx >= 0) memStore[idx] = entry;
   else memStore.push(entry);
@@ -81,8 +78,7 @@ export async function deleteWeek(id: string): Promise<void> {
   const kv = await getKv();
   if (kv) {
     const current = (await kv.get<WeekEntry[]>(KV_KEY)) ?? [];
-    const next = current.filter((w) => w.id !== id);
-    await kv.set(KV_KEY, next);
+    await kv.set(KV_KEY, current.filter((w) => w.id !== id));
     return;
   }
   const idx = memStore.findIndex((w) => w.id === id);

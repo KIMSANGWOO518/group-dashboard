@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { WeekEntry, TEAM_CONFIG, TeamKey } from "@/lib/types";
+import { WeekEntry, TEAM_CONFIG, TeamKey, teamTotal } from "@/lib/types";
 import { format, startOfWeek, getISOWeek, getYear } from "date-fns";
 
 function getWeekId(date: Date): string {
@@ -17,20 +17,23 @@ function getWeekLabel(date: Date): string {
   return `${year}년 ${week}주차`;
 }
 
+type FieldKey = keyof Omit<WeekEntry, "id" | "label" | "date">;
+
+const EMPTY_COUNTS: Record<FieldKey, string> = {
+  poi_poi: "", poi_voc: "",
+  display_roadwidth: "", display_outerline: "",
+  dynamic_road: "", dynamic_traffic: "",
+};
+
 export default function AdminPage() {
   const [weeks, setWeeks] = useState<WeekEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  // form state
   const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
   const [selectedDate, setSelectedDate] = useState(format(monday, "yyyy-MM-dd"));
-  const [counts, setCounts] = useState<Record<TeamKey, string>>({
-    poi: "",
-    display: "",
-    dynamic: "",
-  });
+  const [counts, setCounts] = useState<Record<FieldKey, string>>(EMPTY_COUNTS);
 
   const fetchData = useCallback(async () => {
     const res = await fetch("/api/data");
@@ -39,9 +42,7 @@ export default function AdminPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,9 +54,12 @@ export default function AdminPage() {
       id: getWeekId(date),
       label: getWeekLabel(date),
       date: selectedDate,
-      poi: Number(counts.poi) || 0,
-      display: Number(counts.display) || 0,
-      dynamic: Number(counts.dynamic) || 0,
+      poi_poi: Number(counts.poi_poi) || 0,
+      poi_voc: Number(counts.poi_voc) || 0,
+      display_roadwidth: Number(counts.display_roadwidth) || 0,
+      display_outerline: Number(counts.display_outerline) || 0,
+      dynamic_road: Number(counts.dynamic_road) || 0,
+      dynamic_traffic: Number(counts.dynamic_traffic) || 0,
     };
 
     try {
@@ -66,7 +70,7 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error("저장 실패");
       setMessage({ type: "ok", text: `${entry.label} 데이터가 저장되었습니다.` });
-      setCounts({ poi: "", display: "", dynamic: "" });
+      setCounts(EMPTY_COUNTS);
       fetchData();
     } catch {
       setMessage({ type: "err", text: "저장 중 오류가 발생했습니다." });
@@ -103,12 +107,14 @@ export default function AdminPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {/* 입력 폼 */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">주차 데이터 입력</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* 날짜 */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">해당 주 날짜 (월요일 기준)</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                해당 주 날짜 (월요일 기준)
+              </label>
               <input
                 type="date"
                 value={selectedDate}
@@ -122,28 +128,45 @@ export default function AdminPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              {(Object.keys(TEAM_CONFIG) as TeamKey[]).map((key) => (
-                <div key={key}>
-                  <label
-                    className="block text-xs font-medium mb-1"
-                    style={{ color: TEAM_CONFIG[key].color }}
+            {/* 팀별 입력 */}
+            {(Object.keys(TEAM_CONFIG) as TeamKey[]).map((teamKey) => {
+              const cfg = TEAM_CONFIG[teamKey];
+              return (
+                <div key={teamKey}>
+                  <div
+                    className="text-xs font-bold mb-2 pb-1 border-b"
+                    style={{ color: cfg.color, borderColor: cfg.color + "33" }}
                   >
-                    {TEAM_CONFIG[key].label} 팀
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="건수"
-                    value={counts[key]}
-                    onChange={(e) =>
-                      setCounts((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
+                    {cfg.label} 팀
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {cfg.categories.map((cat) => (
+                      <div key={cat.key as string}>
+                        <label
+                          className="block text-xs font-medium mb-1"
+                          style={{ color: cat.color }}
+                        >
+                          {cat.label}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="건수"
+                          value={counts[cat.key as FieldKey]}
+                          onChange={(e) =>
+                            setCounts((prev) => ({
+                              ...prev,
+                              [cat.key]: e.target.value,
+                            }))
+                          }
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
 
             {message && (
               <p
@@ -167,7 +190,7 @@ export default function AdminPage() {
           </form>
         </div>
 
-        {/* 기존 데이터 목록 */}
+        {/* 저장된 데이터 목록 */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">저장된 데이터</h2>
           {loading ? (
@@ -179,17 +202,27 @@ export default function AdminPage() {
               {[...weeks].reverse().map((w) => (
                 <div
                   key={w.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50"
+                  className="flex items-start justify-between p-3 rounded-lg bg-slate-50"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-700">{w.label}</p>
-                    <p className="text-xs text-gray-400">
-                      Poi {w.poi} · Display {w.display} · Dynamic {w.dynamic}
-                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {(Object.keys(TEAM_CONFIG) as TeamKey[]).map((tk) => (
+                        <span key={tk} className="text-xs text-gray-400">
+                          <span style={{ color: TEAM_CONFIG[tk].color }} className="font-medium">
+                            {TEAM_CONFIG[tk].label}
+                          </span>{" "}
+                          {teamTotal(w, tk)}건
+                          <span className="text-gray-300 ml-1">
+                            ({TEAM_CONFIG[tk].categories.map((c) => `${c.label} ${(w[c.key] as number) ?? 0}`).join(" / ")})
+                          </span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <button
                     onClick={() => handleDelete(w.id)}
-                    className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                    className="text-xs text-red-400 hover:text-red-600 transition-colors ml-4 shrink-0"
                   >
                     삭제
                   </button>

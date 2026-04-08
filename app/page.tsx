@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { getAllWeeks } from "@/lib/kv";
 import StatsCards from "@/components/StatsCards";
-import TeamPieChart from "@/components/TeamPieChart";
+import TeamPieCharts from "@/components/TeamPieChart";
 import WeeklyLineChart from "@/components/WeeklyLineChart";
+import { TEAM_CONFIG, TeamKey, teamTotal } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const weeks = await getAllWeeks();
-
   const latest = weeks[weeks.length - 1];
 
   return (
@@ -45,13 +45,13 @@ export default async function DashboardPage() {
           <StatsCards data={weeks} />
         </section>
 
-        {/* 파이차트 */}
+        {/* 팀별 파이차트 3개 */}
         <section>
           <h2 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-            작업 비율
+            팀별 작업 비율
           </h2>
           {weeks.length > 0 ? (
-            <TeamPieChart data={weeks} />
+            <TeamPieCharts data={weeks} />
           ) : (
             <div className="bg-white rounded-2xl shadow-sm p-10 text-center text-gray-400">
               데이터가 없습니다.{" "}
@@ -71,33 +71,88 @@ export default async function DashboardPage() {
           <WeeklyLineChart data={weeks} />
         </section>
 
-        {/* 데이터 테이블 */}
+        {/* 상세 데이터 테이블 */}
         {weeks.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
               상세 데이터
             </h2>
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-gray-500 text-xs uppercase tracking-wide">
                   <tr>
-                    <th className="text-left px-6 py-3">주차</th>
-                    <th className="text-center px-4 py-3 text-indigo-500">Poi</th>
-                    <th className="text-center px-4 py-3 text-emerald-500">Display</th>
-                    <th className="text-center px-4 py-3 text-amber-500">Dynamic</th>
-                    <th className="text-center px-4 py-3 text-gray-500">합계</th>
+                    <th className="text-left px-5 py-3" rowSpan={2}>주차</th>
+                    {(Object.keys(TEAM_CONFIG) as TeamKey[]).map((tk) => (
+                      <th
+                        key={tk}
+                        colSpan={TEAM_CONFIG[tk].categories.length + 1}
+                        className="text-center px-3 py-2 border-l border-slate-200"
+                        style={{ color: TEAM_CONFIG[tk].color }}
+                      >
+                        {TEAM_CONFIG[tk].label}
+                      </th>
+                    ))}
+                    <th className="text-center px-4 py-3 border-l border-slate-200 text-gray-400">
+                      총합
+                    </th>
+                  </tr>
+                  <tr className="border-t border-slate-100">
+                    {(Object.keys(TEAM_CONFIG) as TeamKey[]).map((tk) => (
+                      <>
+                        {TEAM_CONFIG[tk].categories.map((cat) => (
+                          <th
+                            key={cat.key as string}
+                            className="text-center px-3 py-2 border-l border-slate-100 font-normal text-gray-400"
+                          >
+                            {cat.label}
+                          </th>
+                        ))}
+                        <th
+                          className="text-center px-3 py-2 border-l border-slate-100 font-semibold"
+                          style={{ color: TEAM_CONFIG[tk].color }}
+                        >
+                          소계
+                        </th>
+                      </>
+                    ))}
+                    <th className="border-l border-slate-200" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {[...weeks].reverse().map((w) => (
-                    <tr key={w.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-3 text-gray-700 font-medium">{w.label}</td>
-                      <td className="px-4 py-3 text-center text-indigo-600 font-semibold">{w.poi}</td>
-                      <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{w.display}</td>
-                      <td className="px-4 py-3 text-center text-amber-600 font-semibold">{w.dynamic}</td>
-                      <td className="px-4 py-3 text-center text-gray-600">{w.poi + w.display + w.dynamic}</td>
-                    </tr>
-                  ))}
+                  {[...weeks].reverse().map((w) => {
+                    const grandTotal = (Object.keys(TEAM_CONFIG) as TeamKey[]).reduce(
+                      (s, tk) => s + teamTotal(w, tk),
+                      0
+                    );
+                    return (
+                      <tr key={w.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-3 text-gray-700 font-medium whitespace-nowrap">
+                          {w.label}
+                        </td>
+                        {(Object.keys(TEAM_CONFIG) as TeamKey[]).map((tk) => (
+                          <>
+                            {TEAM_CONFIG[tk].categories.map((cat) => (
+                              <td
+                                key={cat.key as string}
+                                className="px-3 py-3 text-center text-gray-500 border-l border-slate-50"
+                              >
+                                {(w[cat.key] as number) ?? 0}
+                              </td>
+                            ))}
+                            <td
+                              className="px-3 py-3 text-center font-semibold border-l border-slate-100"
+                              style={{ color: TEAM_CONFIG[tk].color }}
+                            >
+                              {teamTotal(w, tk)}
+                            </td>
+                          </>
+                        ))}
+                        <td className="px-4 py-3 text-center font-bold text-gray-700 border-l border-slate-200">
+                          {grandTotal}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
