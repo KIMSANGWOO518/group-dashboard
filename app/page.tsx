@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getAllWeeks } from "@/lib/kv";
 import StatsCards from "@/components/StatsCards";
-import TeamPieCharts from "@/components/TeamPieChart";
-import WeeklyLineChart from "@/components/WeeklyLineChart";
+import DashboardCharts from "@/components/DashboardCharts";
 import { TEAM_CONFIG, TeamKey, teamTotal } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,13 +44,13 @@ export default async function DashboardPage() {
           <StatsCards data={weeks} />
         </section>
 
-        {/* 팀별 파이차트 3개 */}
+        {/* 팀별 파이차트 + 클릭 시 상세 혼합 차트 */}
         <section>
           <h2 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
             팀별 작업 비율
           </h2>
           {weeks.length > 0 ? (
-            <TeamPieCharts data={weeks} />
+            <DashboardCharts data={weeks} />
           ) : (
             <div className="bg-white rounded-2xl shadow-sm p-10 text-center text-gray-400">
               데이터가 없습니다.{" "}
@@ -61,14 +60,6 @@ export default async function DashboardPage() {
               에서 입력해주세요.
             </div>
           )}
-        </section>
-
-        {/* 라인차트 */}
-        <section>
-          <h2 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-            주차별 추이
-          </h2>
-          <WeeklyLineChart data={weeks} />
         </section>
 
         {/* 상세 데이터 테이블 */}
