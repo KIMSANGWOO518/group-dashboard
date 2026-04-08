@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { WeekEntry, TEAM_CONFIG, TeamKey, teamTotal } from "@/lib/types";
 import { format, startOfWeek, getISOWeek, getYear, getMonth, getDate, getDay, startOfMonth } from "date-fns";
@@ -11,10 +11,9 @@ function getWeekId(date: Date): string {
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
-/** 해당 날짜가 월의 몇 번째 주인지 계산 */
 function getWeekOfMonth(date: Date): number {
   const dayOfMonth = getDate(date);
-  const firstDayOfMonth = getDay(startOfMonth(date)); // 0=일, 1=월 ...
+  const firstDayOfMonth = getDay(startOfMonth(date));
   return Math.ceil((dayOfMonth + firstDayOfMonth) / 7);
 }
 
@@ -38,10 +37,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null); // 수정 중인 항목 ID
 
   const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
   const [selectedDate, setSelectedDate] = useState(format(monday, "yyyy-MM-dd"));
   const [counts, setCounts] = useState<Record<FieldKey, string>>(EMPTY_COUNTS);
+
+  const formRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     const res = await fetch("/api/data");
@@ -51,6 +53,31 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  /** 수정 버튼 클릭 → 폼에 기존 데이터 채우기 */
+  function handleEdit(w: WeekEntry) {
+    setEditingId(w.id);
+    setSelectedDate(w.date);
+    setCounts({
+      poi_poi: String(w.poi_poi),
+      poi_voc: String(w.poi_voc),
+      display_roadwidth: String(w.display_roadwidth),
+      display_outerline: String(w.display_outerline),
+      dynamic_road: String(w.dynamic_road),
+      dynamic_traffic: String(w.dynamic_traffic),
+    });
+    setMessage(null);
+    // 폼으로 스크롤
+    formRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  /** 수정 취소 */
+  function handleCancelEdit() {
+    setEditingId(null);
+    setSelectedDate(format(monday, "yyyy-MM-dd"));
+    setCounts(EMPTY_COUNTS);
+    setMessage(null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,8 +104,15 @@ export default function AdminPage() {
         body: JSON.stringify(entry),
       });
       if (!res.ok) throw new Error("저장 실패");
-      setMessage({ type: "ok", text: `${entry.label} 데이터가 저장되었습니다.` });
+      setMessage({
+        type: "ok",
+        text: editingId
+          ? `${entry.label} 데이터가 수정되었습니다.`
+          : `${entry.label} 데이터가 저장되었습니다.`,
+      });
+      setEditingId(null);
       setCounts(EMPTY_COUNTS);
+      setSelectedDate(format(monday, "yyyy-MM-dd"));
       fetchData();
     } catch {
       setMessage({ type: "err", text: "저장 중 오류가 발생했습니다." });
@@ -94,8 +128,11 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    if (editingId === id) handleCancelEdit();
     fetchData();
   }
+
+  const isEditing = editingId !== null;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -115,8 +152,28 @@ export default function AdminPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">주차 데이터 입력</h2>
+
+        {/* 입력 / 수정 폼 */}
+        <div
+          ref={formRef}
+          className={`bg-white rounded-2xl shadow-sm p-6 transition-all ${
+            isEditing ? "ring-2 ring-indigo-400" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700">
+              {isEditing ? "주차 데이터 수정" : "주차 데이터 입력"}
+            </h2>
+            {isEditing && (
+              <button
+                onClick={handleCancelEdit}
+                className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1 rounded-lg transition-colors"
+              >
+                취소
+              </button>
+            )}
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 날짜 */}
             <div>
@@ -127,7 +184,8 @@ export default function AdminPage() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                disabled={isEditing} // 수정 시 날짜 변경 불가
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-slate-50 disabled:text-gray-400"
               />
               {selectedDate && (
                 <p className="text-xs text-indigo-500 mt-1">
@@ -191,9 +249,13 @@ export default function AdminPage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              className={`w-full text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 ${
+                isEditing
+                  ? "bg-indigo-500 hover:bg-indigo-600"
+                  : "bg-indigo-500 hover:bg-indigo-600"
+              }`}
             >
-              {saving ? "저장 중..." : "저장"}
+              {saving ? "저장 중..." : isEditing ? "수정 저장" : "저장"}
             </button>
           </form>
         </div>
@@ -210,7 +272,9 @@ export default function AdminPage() {
               {[...weeks].reverse().map((w) => (
                 <div
                   key={w.id}
-                  className="flex items-start justify-between p-3 rounded-lg bg-slate-50"
+                  className={`flex items-start justify-between p-3 rounded-lg transition-colors ${
+                    editingId === w.id ? "bg-indigo-50 ring-1 ring-indigo-200" : "bg-slate-50"
+                  }`}
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-700">{w.label}</p>
@@ -228,12 +292,21 @@ export default function AdminPage() {
                       ))}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDelete(w.id)}
-                    className="text-xs text-red-400 hover:text-red-600 transition-colors ml-4 shrink-0"
-                  >
-                    삭제
-                  </button>
+                  <div className="flex items-center gap-2 ml-4 shrink-0">
+                    <button
+                      onClick={() => handleEdit(w)}
+                      className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors"
+                    >
+                      수정
+                    </button>
+                    <span className="text-gray-200">|</span>
+                    <button
+                      onClick={() => handleDelete(w.id)}
+                      className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
